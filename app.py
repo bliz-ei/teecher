@@ -170,8 +170,13 @@ RECEIVER_HTML = '''
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MacBook Camera Receiver</title>
+  <title>MacBook Camera Receiver with OCR</title>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <!-- 
+    CHANGE 1: Upgraded Tesseract.js from v4 to v5. 
+    This version's API matches the `createWorker('eng')` syntax.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     body { 
       font-family: Arial; 
@@ -227,6 +232,8 @@ RECEIVER_HTML = '''
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.3s;
+      background: #666;
+      color: white;
     }
     button:hover { opacity: 0.8; }
     label { 
@@ -249,10 +256,43 @@ RECEIVER_HTML = '''
       background: #333;
       border-radius: 4px;
     }
+    #ocrLog {
+      margin: 20px auto;
+      padding: 20px;
+      max-width: 1400px;
+      background: #2a2a2a;
+      border-radius: 8px;
+      text-align: left;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    #ocrLog .log-entry {
+      padding: 8px;
+      margin: 5px 0;
+      background: #1a1a1a;
+      border-left: 3px solid #4CAF50;
+      border-radius: 4px;
+    }
+    #ocrLog .timestamp {
+      color: #888;
+      font-size: 12px;
+    }
+    #ocrLog .text {
+      color: #fff;
+      margin-top: 5px;
+    }
+    .ocr-status {
+      color: #ff9800;
+      font-size: 14px;
+      margin-top: 10px;
+      min-height: 1.2em; /* Reserve space for status text */
+    }
   </style>
 </head>
 <body>
-  <h1>📹 Live Camera Feed with Handwriting Detection</h1>
+  <h1>📹 Live Camera Feed with Handwriting Detection & OCR</h1>
   <div id="status">Waiting for stream...</div>
   <div class="info">
     <span class="metric">Frames: <span id="frameCount">0</span></span>
@@ -262,6 +302,8 @@ RECEIVER_HTML = '''
 
   <div class="controls">
     <button id="toggleDetection">🎯 Enable Detection</button>
+    <button id="toggleOCR">📝 Enable OCR</button>
+    <br>
     <label>
       Sensitivity: 
       <input type="range" id="sensitivity" min="5" max="50" value="18">
@@ -272,6 +314,12 @@ RECEIVER_HTML = '''
       <input type="range" id="smoothing" min="50" max="95" value="85">
       <span id="smoothingValue">0.85</span>
     </label>
+    <label>
+      OCR Interval: 
+      <input type="range" id="ocrInterval" min="1" max="10" value="3">
+      <span id="ocrIntervalValue">3</span>s
+    </label>
+    <div class="ocr-status" id="ocrStatus"></div>
   </div>
 
   <div class="container">
@@ -283,6 +331,11 @@ RECEIVER_HTML = '''
       <h3>Handwriting Detection</h3>
       <canvas id="detectionCanvas"></canvas>
     </div>
+  </div>
+
+  <div id="ocrLog">
+    <h3 style="margin-top: 0; color: #4CAF50;">📝 OCR Log (Detected Text)</h3>
+    <div id="logEntries"></div>
   </div>
 
   <script>
@@ -297,19 +350,29 @@ RECEIVER_HTML = '''
     const fpsEl = document.getElementById('fps');
     const latencyEl = document.getElementById('latency');
     const toggleBtn = document.getElementById('toggleDetection');
+    const toggleOCRBtn = document.getElementById('toggleOCR');
     const sensitivitySlider = document.getElementById('sensitivity');
     const sensitivityValue = document.getElementById('sensitivityValue');
     const smoothingSlider = document.getElementById('smoothing');
     const smoothingValue = document.getElementById('smoothingValue');
+    const ocrIntervalSlider = document.getElementById('ocrInterval');
+    const ocrIntervalValue = document.getElementById('ocrIntervalValue');
+    const ocrStatusEl = document.getElementById('ocrStatus');
+    const logEntriesEl = document.getElementById('logEntries');
 
     let count = 0;
     let detectionEnabled = false;
+    let ocrEnabled = false;
     let previousFrame = null;
     let sensitivity = 18;
     let DECAY = 0.85;
+    let ocrInterval = 3;
 
     let accum = null;
     let currentURL = null;
+    let ocrWorker = null;
+    let lastOCRTime = 0;
+    let ocrProcessing = false;
 
     // FPS calculation
     let fpsFrames = 0;
@@ -335,6 +398,44 @@ RECEIVER_HTML = '''
       }
     };
 
+    toggleOCRBtn.onclick = async () => {
+      ocrEnabled = !ocrEnabled;
+      toggleOCRBtn.textContent = ocrEnabled ? '⏸️ Disable OCR' : '📝 Enable OCR';
+      toggleOCRBtn.style.background = ocrEnabled ? '#4CAF50' : '#666';
+      toggleOCRBtn.style.color = 'white';
+      
+      if (ocrEnabled && !ocrWorker) {
+        ocrStatusEl.textContent = 'Initializing OCR engine...';
+        try {
+          /*
+            CHANGE 2: Added a logger to the createWorker call.
+            This is persistent and will update the status text
+            during initialization AND recognition, which is great
+            for debugging (e.g., seeing "Loading language model...").
+          */
+          ocrWorker = await Tesseract.createWorker('eng', 1, { // 1 = OEM_LSTM_ONLY
+            logger: m => {
+              console.log(m); // Log full status to console
+              if (m.status === 'recognizing text') {
+                 ocrStatusEl.textContent = `Recognizing (${Math.round(m.progress * 100)}%)...`;
+              } else if (m.status.startsWith('loading')) {
+                 ocrStatusEl.textContent = `Loading OCR data (${Math.round(m.progress * 100)}%)...`;
+              }
+            }
+          });
+          ocrStatusEl.textContent = 'OCR ready';
+          console.log('Tesseract worker initialized');
+        } catch (error) {
+          console.error('OCR initialization error:', error);
+          ocrStatusEl.textContent = 'OCR initialization failed';
+          ocrEnabled = false;
+          toggleOCRBtn.style.background = '#666';
+        }
+      } else if (!ocrEnabled) {
+        ocrStatusEl.textContent = '';
+      }
+    };
+
     sensitivitySlider.oninput = (e) => {
       sensitivity = parseInt(e.target.value, 10);
       sensitivityValue.textContent = sensitivity;
@@ -344,6 +445,65 @@ RECEIVER_HTML = '''
       DECAY = parseInt(e.target.value, 10) / 100;
       smoothingValue.textContent = DECAY.toFixed(2);
     };
+
+    ocrIntervalSlider.oninput = (e) => {
+      ocrInterval = parseInt(e.target.value, 10);
+      ocrIntervalValue.textContent = ocrInterval;
+    };
+
+    function addLogEntry(text) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      
+      const timestamp = document.createElement('div');
+      timestamp.className = 'timestamp';
+      timestamp.textContent = new Date().toLocaleTimeString();
+      
+      const textDiv = document.createElement('div');
+      textDiv.className = 'text';
+      textDiv.textContent = text || '(no text detected)';
+      
+      entry.appendChild(timestamp);
+      entry.appendChild(textDiv);
+      
+      logEntriesEl.insertBefore(entry, logEntriesEl.firstChild);
+      
+      // Keep only last 20 entries
+      while (logEntriesEl.children.length > 20) {
+        logEntriesEl.removeChild(logEntriesEl.lastChild);
+      }
+      
+      // Also log to console
+      console.log(`[OCR ${timestamp.textContent}]:`, text);
+    }
+
+    async function performOCR() {
+      if (!ocrEnabled || !ocrWorker || ocrProcessing) return;
+      
+      const now = Date.now();
+      if (now - lastOCRTime < ocrInterval * 1000) return;
+      
+      ocrProcessing = true;
+      lastOCRTime = now;
+      // The logger from createWorker will set the status to "Recognizing..."
+      
+      try {
+        // Use the original canvas for OCR
+        const { data: { text } } = await ocrWorker.recognize(originalCanvas);
+        const cleanText = text.trim().replace(/\s+/g, ' ');
+        
+        if (cleanText.length > 0) {
+          addLogEntry(cleanText);
+        }
+        
+        ocrStatusEl.textContent = 'OCR ready'; // Reset status after recognition
+      } catch (error) {
+        console.error('OCR error:', error);
+        ocrStatusEl.textContent = 'OCR error';
+      } finally {
+        ocrProcessing = false;
+      }
+    }
 
     function ensureCanvasSize(w, h) {
       if (originalCanvas.width !== w || originalCanvas.height !== h) {
@@ -470,6 +630,11 @@ RECEIVER_HTML = '''
 
         URL.revokeObjectURL(currentURL);
         currentURL = null;
+        
+        // Trigger OCR if enabled
+        if (ocrEnabled) {
+          performOCR();
+        }
       };
       img.src = currentURL;
     }
@@ -500,12 +665,13 @@ def index():
     <html>
       <head><title>Camera Stream Server</title></head>
       <body style="font-family: Arial; margin: 50px; background: #1a1a1a; color: #fff;">
-        <h1>📹 iPhone to MacBook Camera Stream</h1>
+        <h1>📹 iPhone to MacBook Camera Stream with OCR</h1>
         <h2>Instructions:</h2>
         <ol>
           <li>On your iPhone, visit: <strong>/sender</strong></li>
           <li>On your MacBook, visit: <strong>/receiver</strong></li>
           <li>Start streaming from your iPhone</li>
+          <li>Enable OCR on MacBook to detect text</li>
         </ol>
         <p><a href="/sender" style="color: #4CAF50;">Go to Sender (iPhone)</a></p>
         <p><a href="/receiver" style="color: #4CAF50;">Go to Receiver (MacBook)</a></p>
@@ -540,7 +706,7 @@ def handle_disconnect():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("Camera Stream Server Starting")
+    print("Camera Stream Server with OCR Starting")
     print("=" * 50)
     print("\nMake sure both devices are on the same network!")
 
@@ -565,6 +731,7 @@ if __name__ == '__main__':
     print("2) On iPhone, visit: https://YOUR_MAC_IP:5001/sender")
     print("3) Trust the certificate")
     print("4) On MacBook, visit: https://localhost:5001/receiver")
+    print("5) Enable OCR on receiver to detect text from camera")
     print("=" * 50)
 
     socketio.run(
