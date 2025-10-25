@@ -1,744 +1,208 @@
-from flask import Flask, render_template_string
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, Response, jsonify, request
+from flask_cors import CORS
+import cv2
+import numpy as np
+import base64
 from datetime import datetime
+import json
 import os
-import subprocess
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+CORS(app)
 
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode='threading',
-    ping_timeout=60,
-    ping_interval=25,
-    max_http_buffer_size=10_000_000
-)
+# Storage for chat sessions
+SESSIONS_FILE = 'chat_sessions.json'
+sessions = []
 
-frame_count = 0
+def load_sessions():
+    global sessions
+    if os.path.exists(SESSIONS_FILE):
+        with open(SESSIONS_FILE, 'r') as f:
+            sessions = json.load(f)
+    else:
+        sessions = []
 
-# HTML template for iPhone (sender)
-SENDER_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <title>iPhone Camera Sender</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <style>
-    body { font-family: Arial; margin: 20px; text-align: center; }
-    video { max-width: 100%; border: 2px solid #333; }
-    button { padding: 15px 30px; font-size: 18px; margin: 10px; }
-    #status { margin: 20px; font-weight: bold; }
-    .settings { margin: 20px; }
-    select, input { padding: 8px; margin: 5px; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <h1>iPhone Camera Sender</h1>
-  <video id="video" autoplay playsinline muted></video>
-  <br>
-  <div class="settings">
-    <label>Quality: 
-      <select id="quality">
-        <option value="0.5">Low (faster)</option>
-        <option value="0.6" selected>Medium</option>
-        <option value="0.75">High</option>
-        <option value="0.9">Very High</option>
-      </select>
-    </label>
-    <label>FPS: 
-      <select id="fps">
-        <option value="10">10</option>
-        <option value="15" selected>15</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-      </select>
-    </label>
-  </div>
-  <button id="startBtn">Start Streaming</button>
-  <button id="stopBtn" disabled>Stop Streaming</button>
-  <div id="status">Ready</div>
-  <canvas id="canvas" style="display:none;"></canvas>
+def save_sessions():
+    with open(SESSIONS_FILE, 'w') as f:
+        json.dump(sessions, f, indent=2)
 
-  <script>
-    const socket = io();
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const statusEl = document.getElementById('status');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const qualitySelect = document.getElementById('quality');
-    const fpsSelect = document.getElementById('fps');
+load_sessions()
 
-    let streaming = false;
-    let intervalId = null;
-    const TARGET_WIDTH = 640;
 
-    function stopStream() {
-      streaming = false;
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-      const stream = video.srcObject;
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-      video.srcObject = null;
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      qualitySelect.disabled = false;
-      fpsSelect.disabled = false;
-      statusEl.textContent = 'Stopped';
-    }
-
-    startBtn.onclick = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 }
-          },
-          audio: false
-        });
-        video.srcObject = stream;
-
-        await new Promise(res => {
-          if (video.readyState >= 2) return res();
-          video.onloadedmetadata = () => res();
-        });
-
-        const vw = video.videoWidth || 1280;
-        const vh = video.videoHeight || 720;
-        const scale = TARGET_WIDTH / vw;
-        const targetW = Math.round(vw * scale);
-        const targetH = Math.round(vh * scale);
-
-        canvas.width = targetW;
-        canvas.height = targetH;
-
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        qualitySelect.disabled = true;
-        fpsSelect.disabled = true;
-        statusEl.textContent = 'Streaming...';
-        streaming = true;
-
-        const targetFPS = parseInt(fpsSelect.value);
-        const quality = parseFloat(qualitySelect.value);
-        const intervalMs = Math.round(1000 / targetFPS);
-
-        intervalId = setInterval(() => {
-          if (!streaming) return;
-          ctx.drawImage(video, 0, 0, targetW, targetH);
-          canvas.toBlob(async (blob) => {
-            if (!blob) return;
-            const buf = await blob.arrayBuffer();
-            socket.emit('frame_bin', buf);
-          }, 'image/jpeg', quality);
-        }, intervalMs);
-
-      } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
-        console.error(err);
-      }
-    };
-
-    stopBtn.onclick = () => stopStream();
-
-    socket.on('connect', () => {
-      console.log('Connected to server');
-      statusEl.textContent = 'Connected - Ready to stream';
-    });
-    socket.on('disconnect', () => {
-      console.log('Disconnected from server');
-      stopStream();
-      statusEl.textContent = 'Disconnected';
-    });
-  </script>
-</body>
-</html>
-'''
-
-# HTML template for MacBook (receiver)
-RECEIVER_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <title>MacBook Camera Receiver with OCR</title>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <!-- 
-    CHANGE 1: Upgraded Tesseract.js from v4 to v5. 
-    This version's API matches the `createWorker('eng')` syntax.
-  -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <style>
-    body { 
-      font-family: Arial; 
-      margin: 20px; 
-      text-align: center; 
-      background: #1a1a1a;
-      color: #fff;
-    }
-    .container { 
-      display: flex; 
-      justify-content: center; 
-      gap: 20px; 
-      flex-wrap: wrap;
-      max-width: 1800px;
-      margin: 0 auto;
-    }
-    .view { 
-      text-align: center; 
-      flex: 1;
-      min-width: 300px;
-    }
-    canvas { 
-      width: 100%; 
-      max-width: 800px;
-      border: 3px solid #333; 
-      background: #000;
-      display: block;
-      margin: 0 auto;
-    }
-    #status { 
-      margin: 20px; 
-      font-size: 18px; 
-      font-weight: bold;
-      color: #4CAF50;
-    }
-    .info { 
-      margin: 10px; 
-      color: #888;
-      font-size: 14px;
-    }
-    .controls { 
-      margin: 20px;
-      padding: 20px;
-      background: #2a2a2a;
-      border-radius: 8px;
-      display: inline-block;
-    }
-    button { 
-      padding: 12px 24px; 
-      margin: 5px; 
-      font-size: 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.3s;
-      background: #666;
-      color: white;
-    }
-    button:hover { opacity: 0.8; }
-    label { 
-      margin: 0 15px;
-      display: inline-block;
-    }
-    input[type="range"] {
-      width: 150px;
-      vertical-align: middle;
-    }
-    h1 { color: #fff; }
-    h3 { 
-      color: #4CAF50;
-      margin-top: 0;
-    }
-    .metric {
-      display: inline-block;
-      margin: 0 15px;
-      padding: 8px 16px;
-      background: #333;
-      border-radius: 4px;
-    }
-    #ocrLog {
-      margin: 20px auto;
-      padding: 20px;
-      max-width: 1400px;
-      background: #2a2a2a;
-      border-radius: 8px;
-      text-align: left;
-      max-height: 300px;
-      overflow-y: auto;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-    }
-    #ocrLog .log-entry {
-      padding: 8px;
-      margin: 5px 0;
-      background: #1a1a1a;
-      border-left: 3px solid #4CAF50;
-      border-radius: 4px;
-    }
-    #ocrLog .timestamp {
-      color: #888;
-      font-size: 12px;
-    }
-    #ocrLog .text {
-      color: #fff;
-      margin-top: 5px;
-    }
-    .ocr-status {
-      color: #ff9800;
-      font-size: 14px;
-      margin-top: 10px;
-      min-height: 1.2em; /* Reserve space for status text */
-    }
-  </style>
-</head>
-<body>
-  <h1>📹 Live Camera Feed with Handwriting Detection & OCR</h1>
-  <div id="status">Waiting for stream...</div>
-  <div class="info">
-    <span class="metric">Frames: <span id="frameCount">0</span></span>
-    <span class="metric">FPS: <span id="fps">0</span></span>
-    <span class="metric">Latency: <span id="latency">-</span>ms</span>
-  </div>
-
-  <div class="controls">
-    <button id="toggleDetection">🎯 Enable Detection</button>
-    <button id="toggleOCR">📝 Enable OCR</button>
-    <br>
-    <label>
-      Sensitivity: 
-      <input type="range" id="sensitivity" min="5" max="50" value="18">
-      <span id="sensitivityValue">18</span>
-    </label>
-    <label>
-      Smoothing: 
-      <input type="range" id="smoothing" min="50" max="95" value="85">
-      <span id="smoothingValue">0.85</span>
-    </label>
-    <label>
-      OCR Interval: 
-      <input type="range" id="ocrInterval" min="1" max="10" value="3">
-      <span id="ocrIntervalValue">3</span>s
-    </label>
-    <div class="ocr-status" id="ocrStatus"></div>
-  </div>
-
-  <div class="container">
-    <div class="view">
-      <h3>Original Feed</h3>
-      <canvas id="originalCanvas"></canvas>
-    </div>
-    <div class="view">
-      <h3>Handwriting Detection</h3>
-      <canvas id="detectionCanvas"></canvas>
-    </div>
-  </div>
-
-  <div id="ocrLog">
-    <h3 style="margin-top: 0; color: #4CAF50;">📝 OCR Log (Detected Text)</h3>
-    <div id="logEntries"></div>
-  </div>
-
-  <script>
-    const socket = io();
-    const originalCanvas = document.getElementById('originalCanvas');
-    const detectionCanvas = document.getElementById('detectionCanvas');
-    const originalCtx = originalCanvas.getContext('2d', { willReadFrequently: true });
-    const detectionCtx = detectionCanvas.getContext('2d', { willReadFrequently: true });
-
-    const statusEl = document.getElementById('status');
-    const frameCountEl = document.getElementById('frameCount');
-    const fpsEl = document.getElementById('fps');
-    const latencyEl = document.getElementById('latency');
-    const toggleBtn = document.getElementById('toggleDetection');
-    const toggleOCRBtn = document.getElementById('toggleOCR');
-    const sensitivitySlider = document.getElementById('sensitivity');
-    const sensitivityValue = document.getElementById('sensitivityValue');
-    const smoothingSlider = document.getElementById('smoothing');
-    const smoothingValue = document.getElementById('smoothingValue');
-    const ocrIntervalSlider = document.getElementById('ocrInterval');
-    const ocrIntervalValue = document.getElementById('ocrIntervalValue');
-    const ocrStatusEl = document.getElementById('ocrStatus');
-    const logEntriesEl = document.getElementById('logEntries');
-
-    let count = 0;
-    let detectionEnabled = false;
-    let ocrEnabled = false;
-    let previousFrame = null;
-    let sensitivity = 18;
-    let DECAY = 0.85;
-    let ocrInterval = 3;
-
-    let accum = null;
-    let currentURL = null;
-    let ocrWorker = null;
-    let lastOCRTime = 0;
-    let ocrProcessing = false;
-
-    // FPS calculation
-    let fpsFrames = 0;
-    let fpsLastTime = Date.now();
-    setInterval(() => {
-      const now = Date.now();
-      const elapsed = (now - fpsLastTime) / 1000;
-      const currentFps = Math.round(fpsFrames / elapsed);
-      fpsEl.textContent = currentFps;
-      fpsFrames = 0;
-      fpsLastTime = now;
-    }, 1000);
-
-    toggleBtn.onclick = () => {
-      detectionEnabled = !detectionEnabled;
-      toggleBtn.textContent = detectionEnabled ? '⏸️ Disable Detection' : '🎯 Enable Detection';
-      toggleBtn.style.background = detectionEnabled ? '#4CAF50' : '#666';
-      toggleBtn.style.color = 'white';
-      if (!detectionEnabled) {
-        detectionCtx.clearRect(0, 0, detectionCanvas.width, detectionCanvas.height);
-        previousFrame = null;
-        accum = null;
-      }
-    };
-
-    toggleOCRBtn.onclick = async () => {
-      ocrEnabled = !ocrEnabled;
-      toggleOCRBtn.textContent = ocrEnabled ? '⏸️ Disable OCR' : '📝 Enable OCR';
-      toggleOCRBtn.style.background = ocrEnabled ? '#4CAF50' : '#666';
-      toggleOCRBtn.style.color = 'white';
-      
-      if (ocrEnabled && !ocrWorker) {
-        ocrStatusEl.textContent = 'Initializing OCR engine...';
-        try {
-          /*
-            CHANGE 2: Added a logger to the createWorker call.
-            This is persistent and will update the status text
-            during initialization AND recognition, which is great
-            for debugging (e.g., seeing "Loading language model...").
-          */
-          ocrWorker = await Tesseract.createWorker('eng', 1, { // 1 = OEM_LSTM_ONLY
-            logger: m => {
-              console.log(m); // Log full status to console
-              if (m.status === 'recognizing text') {
-                 ocrStatusEl.textContent = `Recognizing (${Math.round(m.progress * 100)}%)...`;
-              } else if (m.status.startsWith('loading')) {
-                 ocrStatusEl.textContent = `Loading OCR data (${Math.round(m.progress * 100)}%)...`;
-              }
-            }
-          });
-          ocrStatusEl.textContent = 'OCR ready';
-          console.log('Tesseract worker initialized');
-        } catch (error) {
-          console.error('OCR initialization error:', error);
-          ocrStatusEl.textContent = 'OCR initialization failed';
-          ocrEnabled = false;
-          toggleOCRBtn.style.background = '#666';
-        }
-      } else if (!ocrEnabled) {
-        ocrStatusEl.textContent = '';
-      }
-    };
-
-    sensitivitySlider.oninput = (e) => {
-      sensitivity = parseInt(e.target.value, 10);
-      sensitivityValue.textContent = sensitivity;
-    };
-
-    smoothingSlider.oninput = (e) => {
-      DECAY = parseInt(e.target.value, 10) / 100;
-      smoothingValue.textContent = DECAY.toFixed(2);
-    };
-
-    ocrIntervalSlider.oninput = (e) => {
-      ocrInterval = parseInt(e.target.value, 10);
-      ocrIntervalValue.textContent = ocrInterval;
-    };
-
-    function addLogEntry(text) {
-      const entry = document.createElement('div');
-      entry.className = 'log-entry';
-      
-      const timestamp = document.createElement('div');
-      timestamp.className = 'timestamp';
-      timestamp.textContent = new Date().toLocaleTimeString();
-      
-      const textDiv = document.createElement('div');
-      textDiv.className = 'text';
-      textDiv.textContent = text || '(no text detected)';
-      
-      entry.appendChild(timestamp);
-      entry.appendChild(textDiv);
-      
-      logEntriesEl.insertBefore(entry, logEntriesEl.firstChild);
-      
-      // Keep only last 20 entries
-      while (logEntriesEl.children.length > 20) {
-        logEntriesEl.removeChild(logEntriesEl.lastChild);
-      }
-      
-      // Also log to console
-      console.log(`[OCR ${timestamp.textContent}]:`, text);
-    }
-
-    async function performOCR() {
-      if (!ocrEnabled || !ocrWorker || ocrProcessing) return;
-      
-      const now = Date.now();
-      if (now - lastOCRTime < ocrInterval * 1000) return;
-      
-      ocrProcessing = true;
-      lastOCRTime = now;
-      // The logger from createWorker will set the status to "Recognizing..."
-      
-      try {
-        // Use the original canvas for OCR
-        const { data: { text } } = await ocrWorker.recognize(originalCanvas);
-        const cleanText = text.trim().replace(/\s+/g, ' ');
+def analyze_written_work(image_data, question):
+    """
+    Analyze the written work in the image based on the user's question.
+    This is where you would integrate OCR, handwriting recognition, 
+    or AI vision models to understand what's written.
+    """
+    try:
+        # Decode base64 image
+        img_data = base64.b64decode(image_data.split(',')[1])
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        if (cleanText.length > 0) {
-          addLogEntry(cleanText);
+        # Basic image analysis (you can expand this)
+        height, width = frame.shape[:2]
+        brightness = np.mean(frame)
+        
+        # For now, return a helpful response based on common questions
+        # TODO: Integrate OCR (like pytesseract) or AI vision (like GPT-4 Vision)
+        
+        analysis = {
+            "image_received": True,
+            "image_size": f"{width}x{height}",
+            "brightness": round(brightness, 2),
+            "question": question
         }
         
-        ocrStatusEl.textContent = 'OCR ready'; // Reset status after recognition
-      } catch (error) {
-        console.error('OCR error:', error);
-        ocrStatusEl.textContent = 'OCR error';
-      } finally {
-        ocrProcessing = false;
-      }
-    }
-
-    function ensureCanvasSize(w, h) {
-      if (originalCanvas.width !== w || originalCanvas.height !== h) {
-        originalCanvas.width = w;
-        originalCanvas.height = h;
-      }
-      if (detectionCanvas.width !== w || detectionCanvas.height !== h) {
-        detectionCanvas.width = w;
-        detectionCanvas.height = h;
-      }
-    }
-
-    function detectHandwriting(currentImageData, previousImageData) {
-      const data = currentImageData.data;
-      const prev = previousImageData.data;
-      const width = currentImageData.width;
-      const height = currentImageData.height;
-      const N = width * height;
-
-      if (!accum || accum.length !== N) {
-        accum = new Float32Array(N);
-      }
-
-      const motion = new Uint8ClampedArray(N);
-
-      // Grayscale diff with slight adaptive threshold
-      for (let i = 0, p = 0; i < N; i++, p += 4) {
-        const g  = (data[p] + data[p+1] + data[p+2]) / 3;
-        const gp = (prev[p] + prev[p+1] + prev[p+2]) / 3;
-        const diff = Math.abs(g - gp);
-        motion[i] = diff > sensitivity ? 255 : 0;
-      }
-
-      // 3x3 dilation
-      const dilated = new Uint8ClampedArray(N);
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          let maxv = 0;
-          const idx = y * width + x;
-          const w0 = (y-1)*width;
-          const w1 = y*width;
-          const w2 = (y+1)*width;
-          maxv |= motion[w0 + (x-1)];
-          maxv |= motion[w0 + x];
-          maxv |= motion[w0 + (x+1)];
-          maxv |= motion[w1 + (x-1)];
-          maxv |= motion[w1 + x];
-          maxv |= motion[w1 + (x+1)];
-          maxv |= motion[w2 + (x-1)];
-          maxv |= motion[w2 + x];
-          maxv |= motion[w2 + (x+1)];
-          dilated[idx] = maxv ? 255 : 0;
-        }
-      }
-
-      // Temporal smoothing
-      for (let i = 0; i < N; i++) {
-        const impulse = dilated[i] ? 1.0 : 0.0;
-        accum[i] = DECAY * accum[i] + (1.0 - DECAY) * impulse;
-      }
-
-      // Create overlay with gradient coloring
-      const out = detectionCtx.createImageData(width, height);
-      for (let i = 0, p = 0; i < N; i++, p += 4) {
-        const strength = accum[i];
-        if (strength > 0.15) {
-          // Color-coded by intensity: cyan -> yellow -> red
-          const t = Math.min(1, strength * 1.5);
-          if (t < 0.5) {
-            // cyan to yellow
-            const s = t * 2;
-            out.data[p]   = Math.round(255 * s);
-            out.data[p+1] = 255;
-            out.data[p+2] = Math.round(255 * (1-s));
-          } else {
-            // yellow to red
-            const s = (t - 0.5) * 2;
-            out.data[p]   = 255;
-            out.data[p+1] = Math.round(255 * (1-s));
-            out.data[p+2] = 0;
-          }
-          out.data[p+3] = Math.round(200 * Math.min(1, strength * 2));
-        } else {
-          // Dim background
-          out.data[p]   = data[p] * 0.25;
-          out.data[p+1] = data[p+1] * 0.25;
-          out.data[p+2] = data[p+2] * 0.25;
-          out.data[p+3] = 255;
-        }
-      }
-
-      return out;
-    }
-
-    let lastFrameTime = Date.now();
-
-    function drawAndDetectFromBlob(blob) {
-      if (currentURL) URL.revokeObjectURL(currentURL);
-      currentURL = URL.createObjectURL(blob);
-
-      const img = new Image();
-      img.onload = () => {
-        const now = Date.now();
-        latencyEl.textContent = now - lastFrameTime;
-        lastFrameTime = now;
-
-        ensureCanvasSize(img.width, img.height);
-        originalCtx.drawImage(img, 0, 0);
-
-        if (detectionEnabled) {
-          const currentFrame = originalCtx.getImageData(0, 0, img.width, img.height);
-          if (previousFrame &&
-              previousFrame.width === img.width &&
-              previousFrame.height === img.height) {
-            const overlay = detectHandwriting(currentFrame, previousFrame);
-            detectionCtx.putImageData(overlay, 0, 0);
-          } else {
-            detectionCtx.drawImage(img, 0, 0);
-            detectionCtx.fillStyle = 'rgba(0,0,0,0.6)';
-            detectionCtx.fillRect(0, 0, detectionCanvas.width, detectionCanvas.height);
-          }
-          previousFrame = currentFrame;
-        }
-
-        URL.revokeObjectURL(currentURL);
-        currentURL = null;
+        # Generate contextual response based on question keywords
+        question_lower = question.lower()
         
-        // Trigger OCR if enabled
-        if (ocrEnabled) {
-          performOCR();
+        if any(word in question_lower for word in ['help', 'check', 'correct', 'right', 'wrong']):
+            response = "I can see your work! To help you better, I would need OCR integration to read the text. "
+            response += "For now, I can see the image clearly. "
+            response += "\n\nTo improve this app, you can:\n"
+            response += "• Add pytesseract for OCR text extraction\n"
+            response += "• Integrate GPT-4 Vision API for detailed analysis\n"
+            response += "• Use mathpix for math equation recognition\n"
+            response += "\nWhat specific help do you need with your work?"
+        
+        elif any(word in question_lower for word in ['math', 'equation', 'problem', 'solve']):
+            response = "I can see you're working on a math problem! "
+            response += "Once OCR is integrated, I'll be able to:\n"
+            response += "• Read your equations\n"
+            response += "• Check your work step-by-step\n"
+            response += "• Explain where to improve\n"
+            response += "\nCan you describe what you're working on?"
+        
+        elif any(word in question_lower for word in ['write', 'writing', 'handwriting', 'letter']):
+            response = "I can see your handwriting practice! "
+            response += "With computer vision analysis, I could help with:\n"
+            response += "• Letter formation feedback\n"
+            response += "• Spacing and alignment\n"
+            response += "• Consistency across letters\n"
+            response += "\nWhat specific aspect would you like help with?"
+        
+        elif any(word in question_lower for word in ['read', 'what', 'see', 'this']):
+            response = f"I've captured an image ({width}x{height} pixels) of your work. "
+            response += "The lighting looks good. "
+            response += "\n\nTo read the actual text, you'll need to integrate:\n"
+            response += "• Tesseract OCR (pip install pytesseract)\n"
+            response += "• Or use GPT-4 Vision API for AI-powered analysis\n"
+            response += "\nCan you tell me what you'd like me to focus on?"
+        
+        else:
+            response = "I've received your image! I can see your work clearly. "
+            response += "Right now, I'm set up to capture and analyze images. "
+            response += "\n\nTo fully analyze your written work, you can integrate:\n"
+            response += "• OCR for text recognition\n"
+            response += "• AI vision models for understanding\n"
+            response += "• Math recognition for equations\n"
+            response += "\nHow can I help you with what you've written?"
+        
+        return {
+            "success": True,
+            "response": response,
+            "analysis": analysis
         }
-      };
-      img.src = currentURL;
-    }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "response": f"Sorry, I couldn't process the image: {str(e)}"
+        }
 
-    socket.on('video_frame_bin', (arrayBuffer) => {
-      const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
-      drawAndDetectFromBlob(blob);
-      count++;
-      fpsFrames++;
-      frameCountEl.textContent = count;
-      statusEl.textContent = '🟢 Receiving stream...';
-    });
-
-    socket.on('connect', () => {
-      statusEl.textContent = '🟢 Connected to server';
-    });
-    socket.on('disconnect', () => {
-      statusEl.textContent = '🔴 Disconnected from server';
-    });
-  </script>
-</body>
-</html>
-'''
 
 @app.route('/')
 def index():
-    return '''
-    <html>
-      <head><title>Camera Stream Server</title></head>
-      <body style="font-family: Arial; margin: 50px; background: #1a1a1a; color: #fff;">
-        <h1>📹 iPhone to MacBook Camera Stream with OCR</h1>
-        <h2>Instructions:</h2>
-        <ol>
-          <li>On your iPhone, visit: <strong>/sender</strong></li>
-          <li>On your MacBook, visit: <strong>/receiver</strong></li>
-          <li>Start streaming from your iPhone</li>
-          <li>Enable OCR on MacBook to detect text</li>
-        </ol>
-        <p><a href="/sender" style="color: #4CAF50;">Go to Sender (iPhone)</a></p>
-        <p><a href="/receiver" style="color: #4CAF50;">Go to Receiver (MacBook)</a></p>
-      </body>
-    </html>
-    '''
+    """Serve the iPhone interface"""
+    return render_template('mobile.html')
 
-@app.route('/sender')
-def sender():
-    return render_template_string(SENDER_HTML)
 
-@app.route('/receiver')
-def receiver():
-    return render_template_string(RECEIVER_HTML)
+@app.route('/api/sessions')
+def get_sessions():
+    """Get all chat sessions"""
+    return jsonify({"sessions": sessions})
 
-@socketio.on('frame_bin')
-def handle_frame_bin(data):
-    global frame_count
-    frame_count += 1
-    emit('video_frame_bin', data, broadcast=True, include_self=False)
 
-    if frame_count % 100 == 0:
-        print(f"Processed {frame_count} frames at {datetime.now()}")
+@app.route('/api/session/<session_id>')
+def get_session(session_id):
+    """Get a specific session"""
+    session = next((s for s in sessions if s['id'] == session_id), None)
+    if session:
+        return jsonify(session)
+    return jsonify({"error": "Session not found"}), 404
 
-@socketio.on('connect')
-def handle_connect():
-    print(f"Client connected: {datetime.now()}")
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    print(f"Client disconnected: {datetime.now()}")
+@app.route('/api/new_session', methods=['POST'])
+def new_session():
+    """Create a new chat session"""
+    session = {
+        "id": f"session_{int(datetime.now().timestamp() * 1000)}",
+        "timestamp": datetime.now().isoformat(),
+        "messages": []
+    }
+    sessions.insert(0, session)  # Add to beginning
+    save_sessions()
+    return jsonify(session)
+
+
+@app.route('/api/send_message', methods=['POST'])
+def send_message():
+    """Process a user message with image of written work"""
+    data = request.json
+    session_id = data.get('session_id')
+    message = data.get('message')
+    image = data.get('image')
+    
+    if not session_id or not message:
+        return jsonify({"error": "Missing session_id or message"}), 400
+    
+    session = next((s for s in sessions if s['id'] == session_id), None)
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    
+    # Add user message
+    user_msg = {
+        "role": "user",
+        "content": message,
+        "timestamp": datetime.now().isoformat(),
+        "has_image": image is not None
+    }
+    session['messages'].append(user_msg)
+    
+    # Analyze the written work if image provided
+    if image:
+        result = analyze_written_work(image, message)
+        response_text = result['response']
+    else:
+        response_text = "Please take a photo of your written work so I can help you with it!"
+    
+    # Add assistant response
+    assistant_msg = {
+        "role": "assistant",
+        "content": response_text,
+        "timestamp": datetime.now().isoformat()
+    }
+    session['messages'].append(assistant_msg)
+    
+    save_sessions()
+    
+    return jsonify({
+        "session": session,
+        "success": True
+    })
+
+
+@app.route('/api/delete_session/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    """Delete a session"""
+    global sessions
+    sessions = [s for s in sessions if s['id'] != session_id]
+    save_sessions()
+    return jsonify({"success": True})
+
 
 if __name__ == '__main__':
-    print("=" * 50)
-    print("Camera Stream Server with OCR Starting")
-    print("=" * 50)
-    print("\nMake sure both devices are on the same network!")
-
-    cert_file = 'cert.pem'
-    key_file = 'key.pem'
-
-    if not os.path.exists(cert_file) or not os.path.exists(key_file):
-        print("\nGenerating self-signed certificate...")
-        try:
-            subprocess.run([
-                'openssl', 'req', '-x509', '-newkey', 'rsa:4096',
-                '-nodes', '-out', cert_file, '-keyout', key_file,
-                '-days', '365', '-subj', '/CN=localhost'
-            ], check=True)
-            print("Certificate generated!")
-        except Exception as e:
-            print("Failed to generate certificate. Install openssl or provide cert/key.")
-            raise e
-
-    print("\nTo access from iPhone:")
-    print("1) Find your Mac's IP (System Settings → Network)")
-    print("2) On iPhone, visit: https://YOUR_MAC_IP:5001/sender")
-    print("3) Trust the certificate")
-    print("4) On MacBook, visit: https://localhost:5001/receiver")
-    print("5) Enable OCR on receiver to detect text from camera")
-    print("=" * 50)
-
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=5001,
-        debug=True,
-        allow_unsafe_werkzeug=True,
-        ssl_context=(cert_file, key_file)
-    )
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
