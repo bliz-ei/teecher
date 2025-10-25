@@ -7,7 +7,12 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-socketio = SocketIO(app, cors_allowed_origins="*", max_size=10000000)
+socketio = SocketIO(app, 
+                    cors_allowed_origins="*", 
+                    max_size=10000000,
+                    async_mode='threading',
+                    ping_timeout=60,
+                    ping_interval=25)
 
 # Store the latest frame
 latest_frame = None
@@ -51,7 +56,12 @@ SENDER_HTML = '''
         startBtn.onclick = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: 640, height: 480 } 
+                    video: { 
+                        facingMode: 'environment', 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    } 
                 });
                 video.srcObject = stream;
                 startBtn.disabled = true;
@@ -64,10 +74,10 @@ SENDER_HTML = '''
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         ctx.drawImage(video, 0, 0);
-                        const frame = canvas.toDataURL('image/jpeg', 0.7);
+                        const frame = canvas.toDataURL('image/jpeg', 0.8);
                         socket.emit('frame', { data: frame });
                     }
-                }, 100); // Send ~10 frames per second
+                }, 33); // Send ~30 frames per second
                 
                 streaming = true;
             } catch (err) {
@@ -105,26 +115,168 @@ RECEIVER_HTML = '''
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         body { font-family: Arial; margin: 20px; text-align: center; background: #f0f0f0; }
-        #frame { max-width: 90%; border: 3px solid #333; background: white; }
+        .container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .view { text-align: center; }
+        canvas, img { max-width: 45vw; border: 3px solid #333; background: white; }
         #status { margin: 20px; font-size: 18px; font-weight: bold; }
         .info { margin: 10px; color: #666; }
+        .controls { margin: 20px; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+        label { margin: 0 10px; }
     </style>
 </head>
 <body>
-    <h1>MacBook Camera Receiver</h1>
+    <h1>MacBook Camera Receiver with Handwriting Detection</h1>
     <div id="status">Waiting for stream...</div>
     <div class="info">Frames received: <span id="frameCount">0</span></div>
-    <img id="frame" src="" alt="Camera feed will appear here">
+    
+    <div class="controls">
+        <button id="toggleDetection">Enable Detection</button>
+        <label>Sensitivity: <input type="range" id="sensitivity" min="5" max="50" value="20"></label>
+        <span id="sensitivityValue">20</span>
+    </div>
+
+    <div class="container">
+        <div class="view">
+            <h3>Original Feed</h3>
+            <canvas id="originalCanvas"></canvas>
+        </div>
+        <div class="view">
+            <h3>Handwriting Detection</h3>
+            <canvas id="detectionCanvas"></canvas>
+        </div>
+    </div>
 
     <script>
         const socket = io();
-        const frame = document.getElementById('frame');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const detectionCanvas = document.getElementById('detectionCanvas');
+        const originalCtx = originalCanvas.getContext('2d');
+        const detectionCtx = detectionCanvas.getContext('2d');
         const status = document.getElementById('status');
         const frameCount = document.getElementById('frameCount');
+        const toggleBtn = document.getElementById('toggleDetection');
+        const sensitivitySlider = document.getElementById('sensitivity');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        
         let count = 0;
+        let detectionEnabled = false;
+        let previousFrame = null;
+        let sensitivity = 20;
+        
+        const img = new Image();
+
+        toggleBtn.onclick = () => {
+            detectionEnabled = !detectionEnabled;
+            toggleBtn.textContent = detectionEnabled ? 'Disable Detection' : 'Enable Detection';
+            toggleBtn.style.background = detectionEnabled ? '#4CAF50' : '';
+            toggleBtn.style.color = detectionEnabled ? 'white' : '';
+            if (!detectionEnabled) {
+                detectionCtx.clearRect(0, 0, detectionCanvas.width, detectionCanvas.height);
+            }
+        };
+
+        sensitivitySlider.oninput = (e) => {
+            sensitivity = parseInt(e.target.value);
+            sensitivityValue.textContent = sensitivity;
+        };
+
+        function detectHandwriting(imageData, previousImageData) {
+            const data = imageData.data;
+            const prevData = previousImageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            // Create output for detection visualization
+            const output = detectionCtx.createImageData(width, height);
+            
+            // Track motion intensity
+            let motionMap = new Uint8Array(width * height);
+            
+            // Detect changes between frames
+            for (let i = 0; i < data.length; i += 4) {
+                const idx = i / 4;
+                
+                // Calculate difference in grayscale
+                const curr = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                const prev = (prevData[i] + prevData[i + 1] + prevData[i + 2]) / 3;
+                const diff = Math.abs(curr - prev);
+                
+                if (diff > sensitivity) {
+                    motionMap[idx] = 255;
+                }
+            }
+            
+            // Apply morphological operations to reduce noise
+            const kernel = 3;
+            const dilated = new Uint8Array(width * height);
+            
+            for (let y = kernel; y < height - kernel; y++) {
+                for (let x = kernel; x < width - kernel; x++) {
+                    let maxVal = 0;
+                    for (let ky = -kernel; ky <= kernel; ky++) {
+                        for (let kx = -kernel; kx <= kernel; kx++) {
+                            const idx = (y + ky) * width + (x + kx);
+                            maxVal = Math.max(maxVal, motionMap[idx]);
+                        }
+                    }
+                    dilated[y * width + x] = maxVal;
+                }
+            }
+            
+            // Draw detection overlay
+            for (let i = 0; i < dilated.length; i++) {
+                const intensity = dilated[i];
+                const pixelIdx = i * 4;
+                
+                if (intensity > 0) {
+                    // Highlight detected motion in bright cyan/yellow
+                    output.data[pixelIdx] = 0;      // R
+                    output.data[pixelIdx + 1] = 255; // G
+                    output.data[pixelIdx + 2] = 255; // B
+                    output.data[pixelIdx + 3] = 180; // A
+                } else {
+                    // Keep original but dimmed
+                    output.data[pixelIdx] = data[pixelIdx] * 0.3;
+                    output.data[pixelIdx + 1] = data[pixelIdx + 1] * 0.3;
+                    output.data[pixelIdx + 2] = data[pixelIdx + 2] * 0.3;
+                    output.data[pixelIdx + 3] = 255;
+                }
+            }
+            
+            return output;
+        }
+
+        img.onload = () => {
+            // Set canvas sizes
+            originalCanvas.width = img.width;
+            originalCanvas.height = img.height;
+            detectionCanvas.width = img.width;
+            detectionCanvas.height = img.height;
+            
+            // Draw original
+            originalCtx.drawImage(img, 0, 0);
+            
+            // Perform detection if enabled
+            if (detectionEnabled) {
+                const currentFrame = originalCtx.getImageData(0, 0, img.width, img.height);
+                
+                if (previousFrame && previousFrame.width === img.width && previousFrame.height === img.height) {
+                    const detected = detectHandwriting(currentFrame, previousFrame);
+                    detectionCtx.putImageData(detected, 0, 0);
+                } else {
+                    // First frame or size mismatch, just show dimmed version
+                    detectionCtx.drawImage(img, 0, 0);
+                    detectionCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    detectionCtx.fillRect(0, 0, detectionCanvas.width, detectionCanvas.height);
+                }
+                
+                previousFrame = currentFrame;
+            }
+        };
 
         socket.on('video_frame', (data) => {
-            frame.src = data.frame;
+            img.src = data.frame;
             count++;
             frameCount.textContent = count;
             status.textContent = 'Receiving stream...';
@@ -175,8 +327,8 @@ def handle_frame(data):
     latest_frame = data['data']
     frame_count += 1
     
-    # Broadcast frame to all receivers
-    emit('video_frame', {'frame': latest_frame}, broadcast=True)
+    # Broadcast frame to all receivers (don't include sender)
+    emit('video_frame', {'frame': latest_frame}, broadcast=True, include_self=False)
     
     if frame_count % 100 == 0:
         print(f"Processed {frame_count} frames at {datetime.now()}")
