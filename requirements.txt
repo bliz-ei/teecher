@@ -2,3 +2,7 @@ flask
 flask-cors
 opencv-python
 numpy
+pytesseract
+pillow
+google-generativeai
+python-dotenv

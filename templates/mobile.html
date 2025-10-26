@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Writing Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        /* Main camera view */
+        .camera-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        
+        #canvas {
+            display: none;
+        }
+        
+        /* Menu button */
+        .menu-btn {
+            position: fixed;
+            top: 50px;
+            left: 20px;
+            width: 44px;
+            height: 44px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 22px;
+            border: none;
+            color: white;
+            font-size: 24px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Chat button */
+        .chat-btn {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            color: #000;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        /* Side menu (sessions list) */
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: -80%;
+            width: 80%;
+            height: 100%;
+            background: #000;
+            z-index: 200;
+            transition: left 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .side-menu.open {
+            left: 0;
+        }
+        
+        .menu-header {
+            padding: 60px 20px 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .menu-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .new-chat-btn {
+            width: 100%;
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        
+        .session-item {
+            padding: 18px 20px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+        }
+        
+        .session-item:active {
+            background: #111;
+        }
+        
+        .session-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .session-date {
+            font-size: 13px;
+            color: #888;
+        }
+        
+        /* Overlay to close menu */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 150;
+            display: none;
+        }
+        
+        .overlay.show {
+            display: block;
+        }
+        
+        /* Chat interface */
+        .chat-interface {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            z-index: 300;
+            display: none;
+            flex-direction: column;
+        }
+        
+        .chat-interface.active {
+            display: flex;
+        }
+        
+        .chat-header {
+            background: #111;
+            padding: 50px 20px 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            color: #007AFF;
+            font-size: 18px;
+            padding: 5px;
+        }
+        
+        .chat-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            max-width: 85%;
+        }
+        
+        .message.user {
+            margin-left: auto;
+        }
+        
+        .message-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+        
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 16px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        
+        .message.user .message-bubble {
+            background: #007AFF;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant .message-bubble {
+            background: #1C1C1E;
+            color: white;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #000;
+            padding: 15px 20px;
+            padding-bottom: calc(15px + env(safe-area-inset-bottom));
+            border-top: 1px solid #333;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: #1C1C1E;
+            border-radius: 20px;
+            padding: 8px 8px 8px 16px;
+        }
+        
+        .input-wrapper textarea {
+            flex: 1;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            resize: none;
+            max-height: 100px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .input-wrapper textarea:focus {
+            outline: none;
+        }
+        
+        .send-btn {
+            width: 32px;
+            height: 32px;
+            background: #007AFF;
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .send-btn:disabled {
+            background: #333;
+            color: #666;
+        }
+        
+        .loading {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+        
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #666;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loading-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        
+        .loading-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 
+            40% { 
+                transform: scale(1);
+            }
+        }
+        
+        /* Focus indicator */
+        .focus-indicator {
+            position: fixed;
+            width: 80px;
+            height: 80px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000;
+            animation: focusPulse 1s ease-out;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes focusPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Camera View -->
+    <div class="camera-view">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <button class="chat-btn" onclick="startNewChat()">Ask anything</button>
+    </div>
+    
+    <!-- Overlay -->
+    <div class="overlay" onclick="closeMenu()"></div>
+    
+    <!-- Side Menu -->
+    <div class="side-menu">
+        <div class="menu-header">
+            <div class="menu-title">Chats</div>
+            <button class="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
+        </div>
+        <div id="sessionsList"></div>
+    </div>
+    
+    <!-- Chat Interface -->
+    <div class="chat-interface">
+        <div class="chat-header">
+            <button class="back-btn" onclick="closeChat()">← Back</button>
+            <div class="chat-title">Writing Assistant</div>
+        </div>
+        
+        <div class="messages-container" id="messagesContainer"></div>
+        
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Ask a follow-up question..."
+                    rows="1"
+                    onkeydown="handleKeyDown(event)"
+                ></textarea>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const SERVER_URL = window.location.origin;
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let currentSessionId = null;
+        let stream = null;
+        
+        // Start camera with best iOS settings
+        async function startCamera() {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera API not available. Please access via HTTPS or enable camera permissions in Safari settings.');
+                }
+                
+                // Request highest quality camera for better autofocus
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920, max: 4096 },
+                        height: { ideal: 1080, max: 2160 },
+                        // iOS Safari uses native autofocus automatically
+                    }
+                });
+                video.srcObject = stream;
+                
+                // Add tap feedback even though iOS handles focus natively
+                video.addEventListener('click', handleTapFeedback);
+                
+            } catch (err) {
+                const errorMsg = 'Camera access denied: ' + err.message + '\n\nPlease:\n1. Access via HTTPS, OR\n2. Enable camera in Safari Settings → Safari → Camera, OR\n3. Access from MacBook at http://localhost:5000';
+                alert(errorMsg);
+                console.error('Camera error:', err);
+            }
+        }
+        
+        // Show visual feedback when tapping (iOS handles actual focus natively)
+        function handleTapFeedback(event) {
+            // Show visual indicator to user
+            showFocusIndicator(event.clientX, event.clientY);
+            
+            // Give iOS time to focus (it does this automatically)
+            // Just provide visual feedback
+        }
+        
+        // Show focus indicator when tapping
+        function showFocusIndicator(x, y) {
+            // Remove any existing indicators
+            const existing = document.querySelector('.focus-indicator');
+            if (existing) existing.remove();
+            
+            // Create new indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'focus-indicator';
+            indicator.style.left = x + 'px';
+            indicator.style.top = y + 'px';
+            document.body.appendChild(indicator);
+            
+            // Remove after animation
+            setTimeout(() => indicator.remove(), 800);
+        }
+        
+        // Menu functions
+        function toggleMenu() {
+            const menu = document.querySelector('.side-menu');
+            const overlay = document.querySelector('.overlay');
+            menu.classList.toggle('open');
+            overlay.classList.toggle('show');
+            loadSessions();
+        }
+        
+        function closeMenu() {
+            document.querySelector('.side-menu').classList.remove('open');
+            document.querySelector('.overlay').classList.remove('show');
+        }
+        
+        // Load chat sessions
+        async function loadSessions() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/sessions`);
+                const data = await response.json();
+                
+                const list = document.getElementById('sessionsList');
+                list.innerHTML = '';
+                
+                data.sessions.forEach(session => {
+                    const date = new Date(session.timestamp);
+                    const dateStr = date.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    const item = document.createElement('div');
+                    item.className = 'session-item';
+                    item.onclick = () => openSession(session.id);
+                    item.innerHTML = `
+                        <div class="session-title">New chat session</div>
+                        <div class="session-date">${dateStr}</div>
+                    `;
+                    list.appendChild(item);
+                });
+            } catch (err) {
+                console.error('Error loading sessions:', err);
+            }
+        }
+        
+        // Start new chat and auto-send first message
+        async function startNewChat() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/new_session`, {
+                    method: 'POST'
+                });
+                const session = await response.json();
+                currentSessionId = session.id;
+                
+                closeMenu();
+                openChatInterface();
+                
+                // Automatically send the first message with photo
+                await sendInitialMessage();
+                
+            } catch (err) {
+                console.error('Error creating session:', err);
+            }
+        }
+        
+        // Send initial message automatically when chat opens
+        async function sendInitialMessage() {
+            if (!currentSessionId) return;
+            
+            // Show loading immediately
+            showLoading();
+            
+            // Capture image
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server (empty message will be replaced with default)
+            try {
+                const response = await fetch(`${SERVER_URL}/api/send_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: '',  // Empty message - server will use default
+                        image: imageData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading
+                removeLoading();
+                
+                // Display both user and assistant messages
+                if (data.session.messages && data.session.messages.length >= 2) {
+                    const userMsg = data.session.messages[data.session.messages.length - 2];
+                    const assistantMsg = data.session.messages[data.session.messages.length - 1];
+                    
+                    addMessageToUI('user', userMsg.content);
+                    addMessageToUI('assistant', assistantMsg.content);
+                }
+                
+            } catch (err) {
+                console.error('Error sending initial message:', err);
+                removeLoading();
+                addMessageToUI('assistant', 'Sorry, there was an error processing your request.');
+            }
+        }
+        
+        // Open existing session
+        async function openSession(sessionId) {
+            currentSessionId = sessionId;
+            closeMenu();
+            openChatInterface();
+            await loadMessages();
+        }
+        
+        // Open chat interface
+        function openChatInterface() {
+            document.querySelector('.chat-interface').classList.add('active');
+            document.getElementById('messagesContainer').innerHTML = '';
+            document.getElementById('messageInput').focus();
+        }
+        
+        // Close chat
+        function closeChat() {
+            document.querySelector('.chat-interface').classList.remove('active');
+            currentSessionId = null;
+        }
+        
+        // Load messages for current session
+        async function loadMessages() {
+            if (!currentSessionId) return;
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/session/${currentSessionId}`);
+                const session = await response.json();
+                
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '';
+                
+                session.messages.forEach(msg => {
+                    addMessageToUI(msg.role, msg.content);
+                });
+                
+                scrollToBottom();
+            } catch (err) {
+                console.error('Error loading messages:', err);
+            }
+        }
+        
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentSessionId) return;
+            
+            // Add user message to UI
+            addMessageToUI('user', message);
+            input.value = '';
+            autoResize(input);
+            
+            // Show loading
+            showLoading();
+            
+            // Capture image
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server
+            try {
+                const response = await fetch(`${SERVER_URL}/api/send_message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        message: message,
+                        image: imageData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Remove loading
+                removeLoading();
+                
+                // Add assistant response
+                const lastMsg = data.session.messages[data.session.messages.length - 1];
+                addMessageToUI('assistant', lastMsg.content);
+                
+            } catch (err) {
+                console.error('Error sending message:', err);
+                removeLoading();
+                addMessageToUI('assistant', 'Sorry, there was an error processing your request.');
+            }
+        }
+        
+        // Add message to UI
+        function addMessageToUI(role, content) {
+            const container = document.getElementById('messagesContainer');
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.innerHTML = `
+                <div class="message-label">${role === 'user' ? 'you' : 'assistant'}</div>
+                <div class="message-bubble">${content}</div>
+            `;
+            container.appendChild(msg);
+            scrollToBottom();
+        }
+        
+        // Show loading indicator
+        function showLoading() {
+            const container = document.getElementById('messagesContainer');
+            const loading = document.createElement('div');
+            loading.className = 'message assistant';
+            loading.id = 'loading-indicator';
+            loading.innerHTML = `
+                <div class="message-label">assistant</div>
+                <div class="message-bubble">
+                    <div class="loading">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(loading);
+            scrollToBottom();
+        }
+        
+        // Remove loading indicator
+        function removeLoading() {
+            const loading = document.getElementById('loading-indicator');
+            if (loading) loading.remove();
+        }
+        
+        // Scroll to bottom
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Handle enter key
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        // Auto-resize textarea
+        const textarea = document.getElementById('messageInput');
+        textarea.addEventListener('input', function() {
+            autoResize(this);
+        });
+        
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            startCamera();
+            loadSessions();
+        });
+    </script>
+</body>
+</html>

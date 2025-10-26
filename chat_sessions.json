@@ -1,0 +1,284 @@
+[
+  {
+    "id": "session_1761441033386",
+    "timestamp": "2025-10-25T18:10:33.386388",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T18:10:33.650619",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're working on finding the area of a circle with radius r = 3.\n\nTo start, do you remember the formula for the area of a circle?\n",
+        "timestamp": "2025-10-25T18:10:36.198347"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440877412",
+    "timestamp": "2025-10-25T18:07:57.412320",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T18:07:57.566802",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! Let's break this down. The problem is asking us to find the indefinite integral of 2x with respect to x.\n\nBefore we dive in, can you remind me what the power rule for integration is? In other words, what is the integral of x^n?\n",
+        "timestamp": "2025-10-25T18:08:00.223754"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440868691",
+    "timestamp": "2025-10-25T18:07:48.691396",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T18:07:48.852685",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 6 x 3.\n\nCan you tell me what you've tried so far, or what your initial thoughts are on how to solve it?",
+        "timestamp": "2025-10-25T18:07:51.212324"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440845543",
+    "timestamp": "2025-10-25T18:07:25.543054",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T18:07:25.763581",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 2 + 2.\n\nCan you tell me what you've tried so far, or what your initial thoughts are on how to solve it?\n",
+        "timestamp": "2025-10-25T18:07:28.409583"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440518101",
+    "timestamp": "2025-10-25T18:01:58.101942",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me solve this please?",
+        "timestamp": "2025-10-25T18:02:11.054771",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for sharing your work! To give you the best help, could you please share the problem you're working on? I need to know what you're trying to solve before I can offer any guidance.",
+        "timestamp": "2025-10-25T18:02:13.221050"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440095707",
+    "timestamp": "2025-10-25T17:54:55.707406",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this",
+        "timestamp": "2025-10-25T17:55:04.087950",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 2 + 2.\n\nCan you tell me what you've tried so far, or what your initial thoughts are on how to solve this?\n",
+        "timestamp": "2025-10-25T17:55:06.000747"
+      },
+      {
+        "role": "user",
+        "content": "Is it 4",
+        "timestamp": "2025-10-25T17:55:11.210604",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "You're doing great working through this! To check, could you explain how you got to 4? \ud83e\udd14 Explaining your steps helps us see how you're thinking about the problem. \ud83d\udcdd",
+        "timestamp": "2025-10-25T17:55:12.966793"
+      },
+      {
+        "role": "user",
+        "content": "Well 2 is 1+1 and 1+1+1+1 is 4",
+        "timestamp": "2025-10-25T17:55:42.581487",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, I see you're breaking down the numbers into smaller parts. That's a great strategy! \ud83d\udca1\n\nHow does this help you figure out which number is bigger? \ud83e\udd14\n",
+        "timestamp": "2025-10-25T17:55:44.606439"
+      }
+    ]
+  },
+  {
+    "id": "session_1761440057359",
+    "timestamp": "2025-10-25T17:54:17.359680",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T17:54:25.326865",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for sharing your work! I can't quite see the problem clearly in the image. Could you please provide a clearer picture or describe the problem you're working on? I'm ready to help once I understand what you're trying to solve!",
+        "timestamp": "2025-10-25T17:54:27.439652"
+      }
+    ]
+  },
+  {
+    "id": "session_1761439794282",
+    "timestamp": "2025-10-25T17:49:54.282824",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T17:50:02.020577",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, I see a picture of what looks like a desk with a laptop and mousepad on it. Is there a math problem you're working on that you can show me?",
+        "timestamp": "2025-10-25T17:50:03.915249"
+      }
+    ]
+  },
+  {
+    "id": "session_1761439765309",
+    "timestamp": "2025-10-25T17:49:25.309993",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T17:49:35.778880",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for sharing your work! I see a picture, but I don't see any math. Can you tell me what problem you're working on?\n",
+        "timestamp": "2025-10-25T17:49:37.908659"
+      }
+    ]
+  },
+  {
+    "id": "session_1761439718236",
+    "timestamp": "2025-10-25T17:48:38.236346",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T17:48:49.994347",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 2 + 2.\n\nTo get started, can you tell me what you already know about addition? For example, what does it mean to add two numbers together?\n",
+        "timestamp": "2025-10-25T17:48:53.126196"
+      },
+      {
+        "role": "user",
+        "content": "is it 4?",
+        "timestamp": "2025-10-25T17:49:08.863539",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "You're making progress! \ud83d\udc4d To help me understand where you're at, could you tell me what you've done so far to get to 4? \ud83d\udcdd",
+        "timestamp": "2025-10-25T17:49:11.179559"
+      }
+    ]
+  },
+  {
+    "id": "session_1761439581222",
+    "timestamp": "2025-10-25T17:46:21.222606",
+    "messages": [
+      {
+        "role": "user",
+        "content": "can you help me with this",
+        "timestamp": "2025-10-25T17:46:35.461183",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Don't worry, we'll figure this out together! (Hint #1)\n\n\ud83d\udcdd Looking at: al\neee\nat\nas\nvo\nnoel\nfeel\nee\nsa\ney\na\noe\ni\nete\neae\nwe\ney\nok\nat\nBE\n3\nSania Bi\nigh\na\nce\nis\nfem\nree\net\n:R:\nRY:\nA\na\na.\neae |\nan\nNe\nne\nes\noes\nWe\nye)\nxen\na\ni\nin\nNs\nsh\n.\nwie B\nae\nie\npe\n\u201c\n.\n\\\nSG\nA\n2\ncaine\noe\n\\\nheart\nes\na\nio\nSAN\nx\nee\na0\n3h\nae\nNE\nas\nNe\nSos\nSS\nNN\nont\nyer:\nSA\nA\nBe\nOx\na\na,\na\nN\n8\non:\nBN\n\\\nAN\naaa\n.\n=\nNS\naN\n-\n.\nNS\n\\\n.\nte,\nag\n&\npe\nbe BS:\nRNS\na\noy\nRA\n3)\noa\nce\nxe\nane\nes\n=\nce\na\nwe\nSU\nva\nrage\nGN\nANS\nus\nsky\n\\\nRiad &\nA\nx4\nne\nWTtod\n:\nRAD\noa\nAt\nue\na\nMS\nEN\non\nay\nfelled Oo\n\\\nSES AND\nfh\nSe\nes\nes\n2\noF Bs\nSAS\nx\naN\nRe\nane\naoe\noe\nx a\nret\nip\nF,\nba\n30\nst\ner\nran\naN\nANS\nARC\nKaen ae\nAwe\nze)\nas\nray\neg\ndebe:\na\ni\nth\nans\n<\ne\nor\nss\nSeen\na\nce.\naN\n\u2018\naS\nae\nwe\na\n<a\nEG!\nNae H\nCER\nSS\naoe\naoe\noe\nuy\ncA.\nbw\ncat\nees\nRes\nx\n\n\ud83d\udca1 **First hint:**\n\u2022 What type of problem is this?\n\u2022 What operation(s) do you need to use?\n\u2022 What's the very first calculation you could do?\n\nShow me what you try next!",
+        "timestamp": "2025-10-25T17:46:38.837411"
+      }
+    ]
+  },
+  {
+    "id": "session_1761438597663",
+    "timestamp": "2025-10-25T17:29:57.663062",
+    "messages": [
+      {
+        "role": "user",
+        "content": "i need help",
+        "timestamp": "2025-10-25T17:30:05.738951",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Don't worry, we'll figure this out together! (Hint #1)\n\n\ud83d\udcdd Looking at: cra\nee\nrely\n\u2014e\nFee eee Nercont\nae\ntied S\nse\n=\not\nthy\nit\nWe\na\niN\nparry eee\nsae\nan\nao\n4\na)\na ill A\nbe\ni\na\nwot\ni\nae\npais\nan\neagerunneys\nat\nae\nsaute\nme\ni\nrH\nae\noe\nene\nok\nAS\nSy\nPecans!\nSom\nis\nEe.\nF wBe Fx,\nTe\n2ATe\nae\non\nses\nPET Siren ean\noe\noy tee\nres\nee\nBs\nte ee\nr=\nee\noars\n2 oo\nng\n=a\nZot\n$5\noh\nhel\nBe\nsett\nSree\nSiar\nay\nSie\nie\nOoi\nSe,\nSea\nEee\nahs\nen\nor\n\u2014\neas\nreer\nAaa\nCay\nt=,\nwires\nee\nracy\npete\npied\nTope\nAe\na\nViera ies\npat\nma\n=e tne,\nss\nmate\ncane\nrood\nneh se\nee\npa\nRear\nae\nFon a\nbes\nxd at\n=\nVee\nRe\nae\nrah\nes\nset\nea\nES\nsee tN\nse\nSt\neae aS\nrs\nSeas\npen\nx\n=\nys\ney\nas\nchs\nseve\nrear\neons\nseh\neek\nam\nfy\nwe\nae\ncate\neet\nee\nae\nya\nOren aga\nSe\nBarty\nies\nBiss\nby pears\nPee.\nSa\nes\nBe\nate\nan!\nPs\n\\s\nASa\nae\nte\noe\npee ph es\nSs\noat\nRee\neat\nSG\nay\nNeat\ngames\nioe\ngibee\nFe erm nia\nmrs\not\nos\nRe\nSANA\nsh\nSay\na aes\nat\neral a\nCaw\nree\nae\nie\n=\nbribe,\nSeed\nees\nom\n(ara batt\npons\nee\npoe\ner\nSect\nTe\nwin\noo)\nsa rsied\n%,\nRy\nfra\nSaad\nchal\nx\na\nae\ntee\nee\n\u2014\u2014\nweet\nae:\noe\n<5\nad\nem Fe\nais\nBee\nene\nans\nfor\noer\neen\nred\nSee\nae\na\n~~ ms\nned\nive\nCoens\nBat\noe\nem\n\u2014,\n\u201ca\nae\nrate\npre.\neer 6 Ne\nPS\nVe\nToe\nae\nnon\nham INE,\na\nhe\nre\n\"ag beat APH\n\n\ud83d\udca1 **First hint:**\n\u2022 What type of problem is this?\n\u2022 What operation(s) do you need to use?\n\u2022 What's the very first calculation you could do?\n\nShow me what you try next!",
+        "timestamp": "2025-10-25T17:30:10.714886"
+      }
+    ]
+  },
+  {
+    "id": "session_1761438342640",
+    "timestamp": "2025-10-25T17:25:42.640147",
+    "messages": [
+      {
+        "role": "user",
+        "content": "can you help me solve this",
+        "timestamp": "2025-10-25T17:25:53.176563",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "I had trouble processing that image. But don't worry - just tell me what you're working on and I'll help you learn the concept! \ud83d\ude0a",
+        "timestamp": "2025-10-25T17:25:53.739722"
+      },
+      {
+        "role": "user",
+        "content": "2+2",
+        "timestamp": "2025-10-25T17:26:04.699401",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "I had trouble processing that image. But don't worry - just tell me what you're working on and I'll help you learn the concept! \ud83d\ude0a",
+        "timestamp": "2025-10-25T17:26:05.365698"
+      }
+    ]
+  },
+  {
+    "id": "session_1761438266475",
+    "timestamp": "2025-10-25T17:24:26.475858",
+    "messages": [
+      {
+        "role": "user",
+        "content": "can you help me solve this",
+        "timestamp": "2025-10-25T17:24:36.026156",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "I can see your image, but I'm having trouble reading the text clearly. \n\n\ud83d\udcf8 Try:\n\u2022 Moving the camera closer\n\u2022 Improving the lighting\n\u2022 Making sure the paper is flat and in focus\n\nOr you can just describe what you're working on and I'll help guide you through it!",
+        "timestamp": "2025-10-25T17:24:42.977280"
+      }
+    ]
+  }
+]
