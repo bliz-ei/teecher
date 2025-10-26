@@ -11,6 +11,7 @@ from PIL import Image
 import io
 import time
 import google.generativeai as genai
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -24,6 +25,13 @@ if GEMINI_API_KEY:
 else:
     model = None
     print("⚠️  GEMINI_API_KEY not found - using OCR fallback only")
+
+# Configure Fish Audio API
+FISH_AUDIO_API_KEY = os.environ.get('FISH_AUDIO_API_KEY')
+if FISH_AUDIO_API_KEY:
+    print("✅ Fish Audio API key configured")
+else:
+    print("⚠️  FISH_AUDIO_API_KEY not found - TTS will be disabled")
 
 # Storage for chat sessions
 SESSIONS_FILE = 'chat_sessions.json'
@@ -230,281 +238,67 @@ def preprocess_image_for_ocr(image):
     
     results = []
     
-    # Method 1: Simple threshold
-    _, thresh1 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    results.append(thresh1)
+    # Try multiple preprocessing techniques
+    configs = [
+        ('original', gray),
+        ('threshold', cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]),
+        ('adaptive', cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                          cv2.THRESH_BINARY, 11, 2)),
+    ]
     
-    # Method 2: Adaptive threshold
-    thresh2 = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    results.append(thresh2)
+    for name, processed in configs:
+        text = pytesseract.image_to_string(processed, config='--psm 6')
+        if text.strip():
+            results.append((name, text.strip(), len(text.strip())))
     
-    # Method 3: Invert if dark background
-    inverted = cv2.bitwise_not(gray)
-    _, thresh3 = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    results.append(thresh3)
+    if results:
+        results.sort(key=lambda x: x[2], reverse=True)
+        return results[0][1]
     
-    # Method 4: Increase contrast
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    enhanced = clahe.apply(gray)
-    _, thresh4 = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    results.append(thresh4)
-    
-    return results
+    return ""
 
 
 def extract_text_from_image(image_data):
-    """Extract text from image using OCR with multiple methods"""
+    """Extract text from base64 image using OCR (fallback method)"""
     try:
         img_data = base64.b64decode(image_data.split(',')[1])
         nparr = np.frombuffer(img_data, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        if image is None:
+        if frame is None:
             return None
         
-        processed_images = preprocess_image_for_ocr(image)
+        text = preprocess_image_for_ocr(frame)
+        return text
         
-        all_texts = []
-        
-        configs = [
-            r'--oem 3 --psm 6',  # Uniform block of text
-            r'--oem 3 --psm 7',  # Single line
-            r'--oem 3 --psm 11', # Sparse text
-            r'--oem 3 --psm 13', # Raw line
-        ]
-        
-        for processed in processed_images:
-            pil_image = Image.fromarray(processed)
-            for config in configs:
-                try:
-                    text = pytesseract.image_to_string(pil_image, config=config)
-                    if text and len(text.strip()) > 0:
-                        all_texts.append(text.strip())
-                except:
-                    continue
-        
-        # Also try with original color image
-        try:
-            original_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-            for config in configs:
-                text = pytesseract.image_to_string(original_pil, config=config)
-                if text and len(text.strip()) > 0:
-                    all_texts.append(text.strip())
-        except:
-            pass
-        
-        if not all_texts:
-            return ""
-        
-        best_text = max(all_texts, key=len)
-        best_text = best_text.replace('\n\n', '\n').strip()
-        
-        return best_text
-    
     except Exception as e:
-        print(f"OCR Error: {e}")
-        return None
-
-
-def solve_and_explain(extracted_text):
-    """
-    Solve the problem and explain the solution step-by-step.
-    Fallback method when Gemini is not available.
-    """
-    try:
-        import re
-        
-        text = extracted_text.replace('x', '×').replace('X', '×')
-        text = text.replace('^', '**')
-        
-        patterns = [
-            r'(\d+\.?\d*)\s*([+\-×÷*/])\s*(\d+\.?\d*)',
-            r'(\d+\.?\d*)\s*[\^*]{1,2}\s*(\d+\.?\d*)',
-            r'(\d+\.?\d*)\s*[/÷]\s*(\d+\.?\d*)',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                if len(match.groups()) == 2:  # Exponent pattern
-                    base = float(match.group(1))
-                    exponent = float(match.group(2))
-                    result = base ** exponent
-                    return {
-                        'answer': result,
-                        'operation': 'exponentiation',
-                        'explanation': f"When we raise {base} to the power of {exponent}, we multiply {base} by itself {int(exponent)} times",
-                        'num1': base,
-                        'num2': exponent,
-                        'operator': '^',
-                        'problem': f"{base}^{int(exponent)}"
-                    }
-                elif len(match.groups()) == 3:
-                    num1 = float(match.group(1))
-                    operator = match.group(2)
-                    num2 = float(match.group(3))
-                    
-                    if operator in ['+']:
-                        result = num1 + num2
-                        operation_name = "addition"
-                        explanation = f"When we add {num1} and {num2}, we combine them together"
-                        practice_op = "+"
-                    elif operator in ['-']:
-                        result = num1 - num2
-                        operation_name = "subtraction"
-                        explanation = f"When we subtract {num2} from {num1}, we're finding the difference"
-                        practice_op = "-"
-                    elif operator in ['×', '*']:
-                        result = num1 * num2
-                        operation_name = "multiplication"
-                        explanation = f"When we multiply {num1} by {num2}, we're adding {num1} to itself {int(num2)} times"
-                        practice_op = "×"
-                    elif operator in ['÷', '/']:
-                        if num2 == 0:
-                            return None
-                        result = num1 / num2
-                        operation_name = "division"
-                        explanation = f"When we divide {num1} by {num2}, we're splitting {num1} into {int(num2)} equal parts"
-                        practice_op = "÷"
-                    else:
-                        continue
-                    
-                    return {
-                        'answer': result,
-                        'operation': operation_name,
-                        'explanation': explanation,
-                        'num1': num1,
-                        'num2': num2,
-                        'operator': practice_op,
-                        'problem': f"{num1} {operator} {num2}"
-                    }
-        
-        return None
-    except Exception as e:
-        print(f"Solving error: {e}")
+        print(f"OCR error: {e}")
         return None
 
 
 def generate_tutoring_response_fallback(extracted_text, question, session_id):
     """
-    OCR-based fallback tutoring response when Gemini is not available.
+    Generate a tutoring response using OCR text (fallback when Gemini fails).
+    This is a simplified fallback that doesn't use vision.
     """
-    question_lower = question.lower()
-    
     time_elapsed = get_time_on_problem(session_id)
     hint_count = problem_tracking.get(session_id, {}).get('hint_count', 0)
     
-    should_give_answer = time_elapsed > 120 or hint_count >= 3
-    
-    asking_for_answer = any(word in question_lower for word in [
-        'answer', 'solution', 'what is', "what's", 'tell me', 'give me', 'just tell'
-    ])
-    
-    expressing_frustration = any(word in question_lower for word in [
-        'stuck', 'confused', "don't get", "dont get", 'frustrated', 
-        'give up', 'too hard', "can't do", "cant do", 'still stuck'
-    ])
-    
-    asking_for_help = any(word in question_lower for word in [
-        'help', 'hint', 'clue', 'how do', 'how to', 'explain'
-    ])
-    
-    asking_to_check = any(word in question_lower for word in [
-        'check', 'correct', 'right', 'wrong', 'grade', 'review'
-    ])
-    
+    # Build response based on what we see
     response = ""
     
-    if should_give_answer or (expressing_frustration and hint_count >= 2):
-        solution = solve_and_explain(extracted_text)
+    # Check if this looks like a new problem
+    if any(symbol in extracted_text for symbol in ['=', '+', '-', '×', '÷', '/', '*']):
+        # Looks like a math problem
+        reset_problem_timer(session_id, extracted_text)
         
-        if solution:
-            response = "I can see you've been working hard on this! Let me show you the answer and we'll work backwards to understand it.\n\n"
-            response += f"✅ **The answer is: {solution['answer']}**\n\n"
-            response += f"📚 **Here's how we got there:**\n\n"
-            response += f"**Step 1: Identify what we have**\n"
-            response += f"• First number: {solution['num1']}\n"
-            response += f"• Operation: {solution['operation']}\n"
-            response += f"• Second number: {solution['num2']}\n\n"
-            response += f"**Step 2: Understand the operation**\n"
-            response += f"{solution['explanation']}.\n\n"
-            response += f"**Step 3: Calculate**\n"
-            response += f"{solution['num1']} {solution['operator']} {solution['num2']} = {solution['answer']}\n\n"
-            response += f"🎯 **Now let's practice!**\n"
-            response += f"Try a similar problem to make sure you understand:\n"
-            
-            if solution['operation'] == 'addition':
-                response += f"What is {int(solution['num1']) + 1} + {int(solution['num2']) + 1}?\n\n"
-            elif solution['operation'] == 'subtraction':
-                response += f"What is {int(solution['num1']) + 2} - {int(solution['num2'])}?\n\n"
-            elif solution['operation'] == 'multiplication':
-                response += f"What is {int(solution['num1'])} × {int(solution['num2']) + 1}?\n\n"
-            elif solution['operation'] == 'division':
-                response += f"What is {int(solution['num1']) + int(solution['num2'])} ÷ {int(solution['num2'])}?\n\n"
-            
-            response += "Take a photo when you're ready and I'll help you work through it! 📸"
-            reset_problem_timer(session_id, None)
-        else:
-            response = "I can see you've been struggling with this. Let me help break it down differently.\n\n"
-            response += f"I see: {extracted_text}\n\n"
-            response += "Let's approach this step by step:\n"
-            response += "1. What are you trying to find?\n"
-            response += "2. What information do you have?\n"
-            response += "3. What's the first small step you could take?\n\n"
-            response += "Or describe the problem in your own words and I'll guide you through it!"
-    
-    elif asking_for_answer and not asking_to_check:
-        increment_hint_count(session_id)
-        response = "I believe in you! Let's work through this together instead of me just giving the answer. "
-        response += f"\n\nYou've got this! 💪 (Hint #{hint_count + 1})\n\n"
+        response = f"📸 I can see your math problem:\n\n"
+        response += f"**{extracted_text}**\n\n"
         
-        if any(char in extracted_text for char in ['+', '-', '×', '÷', '=', '*', '/']):
-            response += "🤔 Think about:\n"
-            response += "• What operation do you see? (+, -, ×, ÷)\n"
-            response += "• What's the first step in solving it?\n"
-            response += "• Can you do that first step?\n\n"
-            response += "Give it a try and show me what you get!"
-        else:
-            response += "🤔 Let's break it down:\n"
-            response += "• What do you understand so far?\n"
-            response += "• What's confusing you?\n"
-            response += "• What's one small thing you could figure out?\n\n"
-            response += "Start with what you know!"
-    
-    elif asking_to_check:
-        response = "Great! Let's review your work together. "
-        response += f"\n\n📝 I can see:\n{extracted_text}\n\n"
-        
-        if any(char in extracted_text for char in ['=', '+', '-', '×', '÷', '*', '/']):
-            response += "🤔 Before I tell you if it's right:\n"
-            response += "• Walk me through how you solved it\n"
-            response += "• Which step did you do first?\n"
-            response += "• Does your answer seem reasonable?\n\n"
-            response += "Explain your thinking!"
-    
-    elif asking_for_help or expressing_frustration:
-        hint_count = increment_hint_count(session_id)
-        
-        response = f"Don't worry, we'll figure this out together! (Hint #{hint_count})\n\n"
-        response += f"📝 Looking at: {extracted_text}\n\n"
-        
-        if hint_count == 1:
-            response += "💡 **First hint:**\n"
-            response += "• What type of problem is this?\n"
-            response += "• What operation(s) do you need to use?\n"
-            response += "• What's the very first calculation you could do?\n\n"
-        elif hint_count == 2:
-            response += "💡 **Second hint (more specific):**\n"
-            response += "• Look at the numbers you have\n"
-            response += "• Think about what the operation means\n"
-            response += "• Try to calculate just the first step\n\n"
-        else:
-            response += "💡 **Third hint (very specific):**\n"
-            response += "You're working hard on this! "
-            response += "Try breaking it into the smallest possible step. "
-            response += "If you're still stuck after this, I'll show you the full solution.\n\n"
+        if question and any(word in question.lower() for word in ['help', 'hint', 'stuck']):
+            increment_hint_count(session_id)
+            response += "💡 **Here's a hint:** Start by identifying what type of problem this is. "
+            response += "What operation do you need to use?\n\n"
         
         response += "Show me what you try next!"
     
@@ -695,6 +489,83 @@ def send_message():
         "success": True,
         "should_restart": should_restart
     })
+
+
+@app.route('/api/tts', methods=['POST'])
+def generate_tts():
+    """Generate TTS audio using Fish Audio API"""
+    if not FISH_AUDIO_API_KEY:
+        return jsonify({"error": "Fish Audio API key not configured"}), 500
+    
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({"error": "Missing text"}), 400
+    
+    try:
+        url = "https://api.fish.audio/v1/tts"
+        
+        # FIXED: Added 'model' header as shown in curl
+        headers = {
+            "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+            "Content-Type": "application/json",
+            "model": "fishaudio-tts-1"  # Add the model header (check Fish Audio docs for correct model name)
+        }
+        
+        # FIXED: Updated payload structure to match curl example
+        payload = {
+            "text": text,
+            "reference_id": "8ef4a238714b45718ce04243307c57a7",  # Keep your voice ID
+            "format": "mp3",
+            "mp3_bitrate": 128,
+            "normalize": True,
+            "latency": "normal",
+            "chunk_length": 200
+        }
+        
+        # Optional: If you need custom references
+        # payload["references"] = [{"text": "reference text here"}]
+        
+        print(f"📢 TTS Request: {text[:50]}..." if len(text) > 50 else f"📢 TTS Request: {text}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            if len(response.content) == 0:
+                print("⚠️ Empty audio response from Fish Audio")
+                return jsonify({"error": "Empty audio response"}), 500
+            
+            print(f"✅ TTS Success: {len(response.content)} bytes")
+            print(f"🎵 First 20 bytes (hex): {response.content[:20].hex()}")
+            
+            audio_base64 = base64.b64encode(response.content).decode('utf-8')
+            return jsonify({
+                "success": True,
+                "audio": f"data:audio/mp3;base64,{audio_base64}"
+            })
+        else:
+            error_msg = f"Fish Audio API error: {response.status_code}"
+            try:
+                error_detail = response.json()
+                print(f"❌ {error_msg} - Details: {json.dumps(error_detail, indent=2)}")
+            except:
+                print(f"❌ {error_msg} - Response: {response.text}")
+            
+            return jsonify({
+                "error": error_msg,
+                "details": response.text[:500]
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        print("⏱️ TTS timeout - request took too long")
+        return jsonify({"error": "TTS request timeout"}), 504
+    except requests.exceptions.ConnectionError as e:
+        print(f"🔌 Connection error to Fish Audio: {e}")
+        return jsonify({"error": "Failed to connect to Fish Audio API"}), 503
+    except Exception as e:
+        print(f"❌ Unexpected TTS error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/delete_session/<session_id>', methods=['DELETE'])

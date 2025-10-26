@@ -1,5 +1,378 @@
 [
   {
+    "id": "session_1761458406064",
+    "timestamp": "2025-10-25T23:00:06.064780",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T23:00:09.515955",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, I see the problem. It looks like you're working on finding the indefinite integral of 2x.\n\nTo start, do you remember the power rule for integration? It's a good tool for this problem.\n",
+        "timestamp": "2025-10-25T23:00:12.400018"
+      }
+    ]
+  },
+  {
+    "id": "session_1761458247594",
+    "timestamp": "2025-10-25T22:57:27.594065",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T22:57:34.008988",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 6 x 3.\n\nTo get started, what does 6 x 3 represent? In other words, can you explain what multiplication means?\n",
+        "timestamp": "2025-10-25T22:57:40.957304"
+      },
+      {
+        "role": "user",
+        "content": "Nooo",
+        "timestamp": "2025-10-25T22:58:10.313674",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, I see you're still working on the problem. \ud83e\udd14 How can I help you right now? Would you like a hint, or would you like me to check your work? \ud83d\udcdd Let me know!\n",
+        "timestamp": "2025-10-25T22:58:14.122392"
+      }
+    ]
+  },
+  {
+    "id": "session_1761458215687",
+    "timestamp": "2025-10-25T22:56:55.687675",
+    "messages": []
+  },
+  {
+    "id": "session_1761458215606",
+    "timestamp": "2025-10-25T22:56:55.606880",
+    "messages": []
+  },
+  {
+    "id": "session_1761457907413",
+    "timestamp": "2025-10-25T22:51:47.413541",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T22:51:48.508301",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem. It looks like you're trying to find the indefinite integral of 2x with respect to x.\n\nTo get started, do you remember the power rule for integration? It's a good place to begin.",
+        "timestamp": "2025-10-25T22:51:51.526227"
+      }
+    ]
+  },
+  {
+    "id": "session_1761457605345",
+    "timestamp": "2025-10-25T22:46:45.345874",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T22:46:50.180581",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is to find the indefinite integral of 2x with respect to x.\n\nTo start, do you remember the power rule for integration? It's a good starting point for this problem.",
+        "timestamp": "2025-10-25T22:46:54.631763"
+      },
+      {
+        "role": "user",
+        "content": "no i dont remember",
+        "timestamp": "2025-10-25T22:49:17.825804",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "I understand that you don't remember the previous steps. No worries, that's perfectly fine! \n\nTo help you get back on track, could you remind me what we were working on before? \ud83e\udd14 Or, if you prefer, we can start fresh. Just let me know what you'd like to do! \ud83d\udcdd\n",
+        "timestamp": "2025-10-25T22:49:21.695276"
+      },
+      {
+        "role": "user",
+        "content": "Can we start fresh?",
+        "timestamp": "2025-10-25T22:49:51.236880",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, let's start fresh! \ud83d\udc4d I understand you want to clear the slate and begin again.\n\nTo best help you, can you remind me what the original problem was? \ud83d\udcdd Also, let me know how you'd like to proceed. Would you like a hint, or would you prefer to try explaining the problem to me in your own words? \ud83e\udd14",
+        "timestamp": "2025-10-25T22:49:54.995771"
+      }
+    ]
+  },
+  {
+    "id": "session_1761453511351",
+    "timestamp": "2025-10-25T21:38:31.351585",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:38:42.308595",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem is 2 + 2.\n\nTo start, what does adding mean to you?\n",
+        "timestamp": "2025-10-25T21:40:47.791004"
+      }
+    ]
+  },
+  {
+    "id": "session_1761453282196",
+    "timestamp": "2025-10-25T21:34:42.196400",
+    "messages": []
+  },
+  {
+    "id": "session_1761453280475",
+    "timestamp": "2025-10-25T21:34:40.475501",
+    "messages": []
+  },
+  {
+    "id": "session_1761453272584",
+    "timestamp": "2025-10-25T21:34:32.584075",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:39:41.708482",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem says \"2 * 2\".\n\nTo get started, what does \"2 * 2\" mean to you? How would you explain it in words?\n",
+        "timestamp": "2025-10-25T21:40:50.849989"
+      }
+    ]
+  },
+  {
+    "id": "session_1761453272507",
+    "timestamp": "2025-10-25T21:34:32.507172",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:35:00.668183",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "\ud83d\udcf8 I can see your math problem:\n\n**Recher Ge eee eee eee ean ee ens ere ee e ne e\nfe, Pen ea OR he MS Ege OP EO eee ee SAE Ue at Be CBRE TRB LE Se BRO ER EE oe ORS OS RSS\nae eee oh Gee & OP OR Hees oe. ee HN AR Sips ee\nSERRE) OTE Se Uh Ms OS i RES ho EUR S cae SCats gala AR SG TSE i Re aS\nree tage a atin dae EL RS, Be RN ad Se ARNE, GON ott ee BA ee SARIN TREE GR SCE Sits ote SER RUS ES\nPosie Sb MONG Ea ROMS ee 2 gee Ges REESE ENS SES SIL EE HRT\n: noes SOW sot ll se) ON Re\n\n- Ira Seen ee\n\nPNG US SORES aaNet Rap Ae runes ate Dea ne aCe a eT RRA ima ECE ei ee cane tea\nee\noe ee\nBORA Se NA ei oer cr oi See ana eee SS yA Ut ete Seon ea MAS Oey he ere afi Sue ae eaeaen aa oe ot Su aiter Hai ie eT a**\n\n\ud83d\udca1 **Here's a hint:** Start by identifying what type of problem this is. What operation do you need to use?\n\nShow me what you try next!",
+        "timestamp": "2025-10-25T21:35:05.642023"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452358542",
+    "timestamp": "2025-10-25T21:19:18.542207",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:19:49.450083",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're working on finding the area of a circle.\n\nTo start, can you remind me what the formula is for the area of a circle?",
+        "timestamp": "2025-10-25T21:19:53.109911"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452356943",
+    "timestamp": "2025-10-25T21:19:16.943816",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:19:32.268945",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see a paper with some shapes and the question \"Find Area?\". It looks like you're working with a circle that has a radius (r) of 3.\n\nTo get started, can you remind me of the formula for the area of a circle?",
+        "timestamp": "2025-10-25T21:19:36.849786"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452356615",
+    "timestamp": "2025-10-25T21:19:16.615210",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:19:49.066426",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! It looks like you're working on a math problem. I can see the numbers \"2-2\" and some shapes. Is the question asking you to associate the number \"2-2\" with one of the shapes? Tell me more about what you're trying to do!\n",
+        "timestamp": "2025-10-25T21:19:52.091208"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452356083",
+    "timestamp": "2025-10-25T21:19:16.083091",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:19:52.253159",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're working on finding the area of a circle with radius r = 3.\n\nDo you remember the formula for the area of a circle?\n",
+        "timestamp": "2025-10-25T21:19:54.969872"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452313911",
+    "timestamp": "2025-10-25T21:18:33.911370",
+    "messages": []
+  },
+  {
+    "id": "session_1761452313837",
+    "timestamp": "2025-10-25T21:18:33.837049",
+    "messages": []
+  },
+  {
+    "id": "session_1761452313703",
+    "timestamp": "2025-10-25T21:18:33.703152",
+    "messages": []
+  },
+  {
+    "id": "session_1761452313552",
+    "timestamp": "2025-10-25T21:18:33.552434",
+    "messages": []
+  },
+  {
+    "id": "session_1761452313530",
+    "timestamp": "2025-10-25T21:18:33.530489",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:18:37.664122",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see the problem. It looks like you're asked to find the area of a circle with radius r = 3.\n\nDo you remember the formula for the area of a circle?",
+        "timestamp": "2025-10-25T21:18:41.658767"
+      }
+    ]
+  },
+  {
+    "id": "session_1761452313478",
+    "timestamp": "2025-10-25T21:18:33.478660",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T21:18:38.468178",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay, I see you're working on finding the area of a circle. The radius is given as 3.\n\nDo you remember the formula for the area of a circle?\n",
+        "timestamp": "2025-10-25T21:18:41.958184"
+      }
+    ]
+  },
+  {
+    "id": "session_1761447252968",
+    "timestamp": "2025-10-25T19:54:12.968720",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T19:54:13.101290",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're working on finding the area of a circle.\n\nTo start, do you remember the formula for the area of a circle?\n",
+        "timestamp": "2025-10-25T19:54:15.830084"
+      }
+    ]
+  },
+  {
+    "id": "session_1761447121011",
+    "timestamp": "2025-10-25T19:52:01.011218",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T19:52:01.140736",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for sharing your work! I see you're trying to find the area of a circle with radius r = 3.\n\nDo you remember the formula for the area of a circle?",
+        "timestamp": "2025-10-25T19:52:03.929217"
+      }
+    ]
+  },
+  {
+    "id": "session_1761446989598",
+    "timestamp": "2025-10-25T19:49:49.598643",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T19:49:49.731550",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! It looks like you're trying to find the area of a circle with radius 3.\n\nDo you remember the formula for the area of a circle?\n",
+        "timestamp": "2025-10-25T19:49:52.139883"
+      },
+      {
+        "role": "user",
+        "content": "No i dont",
+        "timestamp": "2025-10-25T19:50:10.306138",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're still thinking about the problem. Since you said \"no\", I'm wondering, what have you tried so far? \ud83e\udd14\n\nOr, is there anything specific you're stuck on? Maybe I can give you a little nudge in the right direction. \ud83d\udca1\n",
+        "timestamp": "2025-10-25T19:50:13.003722"
+      }
+    ]
+  },
+  {
+    "id": "session_1761446975739",
+    "timestamp": "2025-10-25T19:49:35.739996",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Can you help me with this?",
+        "timestamp": "2025-10-25T19:49:35.929982",
+        "has_image": true
+      },
+      {
+        "role": "assistant",
+        "content": "Okay! I see you're working on finding the area of a circle.\n\nTo start, do you remember the formula for the area of a circle?",
+        "timestamp": "2025-10-25T19:49:38.828647"
+      }
+    ]
+  },
+  {
     "id": "session_1761441033386",
     "timestamp": "2025-10-25T18:10:33.386388",
     "messages": [
